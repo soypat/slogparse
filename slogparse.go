@@ -47,6 +47,7 @@ func NewTextParser(r io.Reader, cfg ParserConfig) *TextParser {
 }
 
 // Next reads the next log line from the input and returns it as a Record.
+// Next returns [io.EOF] when the input ends.
 func (p *TextParser) Next() (Record, error) {
 	if err := p.scan(); err != nil {
 		return Record{}, err
@@ -64,7 +65,11 @@ func (p *TextParser) Reset(r io.Reader) {
 func (p *TextParser) scan() error {
 	scanner := p.scanner
 	if !scanner.Scan() {
-		return scanner.Err()
+		err := scanner.Err()
+		if err == nil {
+			err = io.EOF // Ensure error returned to end the loop.
+		}
+		return err
 	}
 	p.lineNumber++
 	line := scanner.Text()
@@ -223,9 +228,9 @@ func (d Record) GetDuration(key string, defaultVal time.Duration) time.Duration 
 	return defaultVal
 }
 
-// GetIfValueContains returns the key and value if the value contains the given
+// getIfValueContains returns the key and value if the value contains the given
 // substring. If not found, returns ("", "").
-func (d Record) GetIfValueContains(substr string) (key, value string) {
+func (d Record) getIfValueContains(substr string) (key, value string) {
 	for i := range d.items {
 		value := d.items[i].value
 		if strings.Contains(value, substr) {

@@ -27,13 +27,12 @@ func ExampleTextParser() {
 		if err != nil {
 			break
 		}
-		t := record.LogTime()
 		message := record.Get("msg")
 		level := record.Get("level")
 		name := record.Get("name")
-		fmt.Println(t, level, message, name)
+		fmt.Println(level, message, "name:", name)
 	}
 	// Output:
-	// true INFO Hello World
-	// true INFO Bye Welt
+	// INFO Hello name: World
+	// INFO Bye name: Welt
 }

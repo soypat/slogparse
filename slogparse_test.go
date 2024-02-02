@@ -31,7 +31,7 @@ func ExampleTextParser() {
 		message := record.Get("msg")
 		level := record.Get("level")
 		name := record.Get("name")
-		fmt.Println(t.Year() >= 2024, level, message, name)
+		fmt.Println(t, level, message, name)
 	}
 	// Output:
 	// true INFO Hello World

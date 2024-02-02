@@ -80,14 +80,21 @@ func (p *TextParser) scan() error {
 	}
 	keyNumber := 0
 	for len(text) > 0 {
+		var err error
 		var key, value string
-		key, text = cutString(text, true)
+		key, text, err = cutString(text, true)
+		if err != nil {
+			return p.abortf("%s at key %d: %v", err, keyNumber, line)
+		}
 		if len(text) <= 1 {
 			return p.abortf("unterminated string key %d: %v", keyNumber, line)
 		} else if len(key) == 0 {
 			return p.abortf("malformed key %d: %v", keyNumber, line)
 		}
-		value, text = cutString(text, false)
+		value, text, err = cutString(text, false)
+		if err != nil {
+			return p.abortf("%s at value %d: %v", err, keyNumber, line)
+		}
 		if len(value) > 0 && value[0] == ' ' {
 			return p.abortf("value %d starts with forbidden char: %v", keyNumber, line)
 		}
@@ -103,10 +110,10 @@ func (p *TextParser) abortf(msg string, a ...any) error {
 	return fmt.Errorf("line %d: "+msg, a...)
 }
 
-func cutString(s string, key bool) (result string, rest string) {
+func cutString(s string, key bool) (result, rest string, err error) {
 	s = strings.TrimSpace(s)
 	if len(s) == 0 {
-		return "", ""
+		return "", "", nil
 	}
 	lookFor := byte(' ')
 	if key {
@@ -117,29 +124,42 @@ func cutString(s string, key bool) (result string, rest string) {
 		// Simplest case, is not quoted string.
 		spaceIdx := strings.IndexByte(s, lookFor)
 		if spaceIdx < 0 {
-			return s, ""
+			// No space found, return entire string.
+			return s, "", nil
 		}
-		return s[:spaceIdx], s[spaceIdx+1:]
+		return s[:spaceIdx], s[spaceIdx+1:], nil
+	} else if len(s) > 1 && s[1] == '"' {
+		// Empty string case.
+		return "", s[2:], nil
 	}
 
 	// Parse quoted string case.
-	start := 1
-	end := 1
+	maybeQuoteIdx := 1
 	for {
-		if s[end] == '"' {
-			if len(s[end:]) > 2 && s[end+1] == '"' {
-				return "", s[end+1:] // Empty string case.
-			}
-			// Check not escaped.
-			if end-start > 0 && s[end-1] != '\\' {
-				// This does not cover the case where string ends with \\"
-				result = s[start:end]
-				rest = s[end+1:]
-				return result, rest
-			}
+		off := strings.IndexByte(s[maybeQuoteIdx:], '"')
+		if off < 0 {
+			return "", "", fmt.Errorf("unterminated quoted string: %v", s)
 		}
-		end++
+		maybeQuoteIdx += off
+		// We now count the number of backslashes before the quote.
+		bsCount := 0
+		for ; bsCount < maybeQuoteIdx && s[maybeQuoteIdx-1-bsCount] == '\\'; bsCount++ {
+		}
+
+		if bsCount%2 == 0 {
+			// If the number of backslashes is even,
+			// the quote is not escaped, we may terminate the string here.
+			break
+		}
+		// This quote is escaped, continue searching for the next one.
+		maybeQuoteIdx++
 	}
+	result, err = strconv.Unquote(s[:maybeQuoteIdx+1])
+	rest = s[maybeQuoteIdx+1:]
+	if len(rest) > 0 {
+		rest = s[maybeQuoteIdx+2:]
+	}
+	return result, rest, err
 }
 
 // ForEach calls the given function for each key-value pair in the Record.

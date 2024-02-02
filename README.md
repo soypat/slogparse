@@ -7,6 +7,8 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT) 
 
 
+Parse logs generated with Go's [slog](https://pkg.go.dev/log/slog) package.
+
 How to install package with newer versions of Go (+1.16):
 ```sh
 go mod download github.com/soypat/slogparse@latest

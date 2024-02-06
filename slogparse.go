@@ -36,7 +36,6 @@ type kv struct {
 
 // NewTextParser returns a new parser ready to parse TextHandler slog-formatted logs.
 func NewTextParser(r io.Reader, cfg ParserConfig) *TextParser {
-
 	p := &TextParser{
 		scanner: bufio.NewScanner(r),
 	}
@@ -71,6 +70,7 @@ func (p *TextParser) scan() error {
 		}
 		return err
 	}
+
 	p.lineNumber++
 	line := scanner.Text()
 	text := line
@@ -78,6 +78,7 @@ func (p *TextParser) scan() error {
 	if p.reuseRecord != nil {
 		items = p.reuseRecord[:0]
 	}
+
 	keyNumber := 0
 	for len(text) > 0 {
 		var err error
@@ -94,9 +95,6 @@ func (p *TextParser) scan() error {
 		value, text, err = cutString(text, false)
 		if err != nil {
 			return p.abortf("%s at value %d: %v", err, keyNumber, line)
-		}
-		if len(value) > 0 && value[0] == ' ' {
-			return p.abortf("value %d starts with forbidden char: %v", keyNumber, line)
 		}
 		items = append(items, kv{key: key, value: value})
 		keyNumber++
@@ -163,14 +161,15 @@ func cutString(s string, key bool) (result, rest string, err error) {
 }
 
 // ForEach calls the given function for each key-value pair in the Record.
+// These are guaranteed to be returned in the same order they appeared in the log line.
 func (d Record) ForEach(fn func(key, value string)) {
 	for i := range d.items {
 		fn(d.items[i].key, d.items[i].value)
 	}
 }
 
-// Contains returns true if the Record contains the given key.
-func (d Record) ContainsK(key string) bool {
+// ContainsKey returns true if a Record pair contains an exact key match.
+func (d Record) ContainsKey(key string) bool {
 	for i := range d.items {
 		if d.items[i].key == key {
 			return true
@@ -179,8 +178,8 @@ func (d Record) ContainsK(key string) bool {
 	return false
 }
 
-// ContainsKV returns true if the Record contains the given key and value.
-func (d Record) ContainsKV(key, value string) bool {
+// ContainsPair returns true if a Record pair contains an exact key and value match.
+func (d Record) ContainsPair(key, value string) bool {
 	for i := range d.items {
 		if d.items[i].key == key && d.items[i].value == value {
 			return true
